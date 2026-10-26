@@ -1,0 +1,16 @@
+.venv/
+backend/.venv/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts.tmp
+frontend/tsconfig.tsbuildinfo
+backend/.env
+frontend/.env.local
+backend/*.db
+backend/*.db-*
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

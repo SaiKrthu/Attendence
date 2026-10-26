@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time 
 from datetime import datetime
+from pathlib import Path
 
 ts=time.time()
 date=datetime.fromtimestamp(ts).strftime("%d-%m-%Y")
@@ -23,6 +24,10 @@ else:
     st.write(f"Count: {count}")
 
 
-df=pd.read_csv("Attendance/Attendance_" + date + ".csv")
-
-st.dataframe(df.style.highlight_max(axis=0))
+attendance_file = Path(__file__).resolve().parent / "Attendance" / f"Attendance_{date}.csv"
+if attendance_file.exists():
+    df = pd.read_csv(attendance_file)
+    st.dataframe(df.style.highlight_max(axis=0))
+else:
+    st.info(f"No attendance has been recorded for {date}.")
+    st.dataframe(pd.DataFrame(columns=["NAME", "TIME"]))
