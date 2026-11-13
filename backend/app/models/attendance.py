@@ -36,7 +36,13 @@ class Attendance(Base):
     employee_name: Mapped[str] = mapped_column(String(200), nullable=False)
     attendance_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     check_in_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    check_in_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_in_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_in_location_name: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     check_out_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    check_out_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_out_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_out_location_name: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     status: Mapped[AttendanceStatus] = mapped_column(
         SAEnum(AttendanceStatus, values_callable=lambda enum: [item.value for item in enum]),
         default=AttendanceStatus.PRESENT,

@@ -6,10 +6,14 @@ from pydantic import BaseModel, Field, field_validator
 
 class CheckInRequest(BaseModel):
     image: str = Field(min_length=1, max_length=1_500_000)
+    check_in_latitude: float = Field(ge=-90, le=90)
+    check_in_longitude: float = Field(ge=-180, le=180)
 
 
 class CheckOutRequest(BaseModel):
     image: str | None = Field(default=None, max_length=1_500_000)
+    check_out_latitude: float = Field(ge=-90, le=90)
+    check_out_longitude: float = Field(ge=-180, le=180)
 
 
 class AttendanceStatusRequest(BaseModel):
@@ -24,7 +28,13 @@ class AttendanceResponse(BaseModel):
     employee_name: str
     attendance_date: date
     check_in_time: str | None
+    check_in_latitude: float | None
+    check_in_longitude: float | None
+    check_in_location_name: str | None
     check_out_time: str | None
+    check_out_latitude: float | None
+    check_out_longitude: float | None
+    check_out_location_name: str | None
     status: str
     working_hours: float | None
 

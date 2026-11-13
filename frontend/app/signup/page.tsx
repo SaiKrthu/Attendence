@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { api } from "@/services/api";
+import BrandLogo from "@/components/BrandLogo";
 
 type SignupForm = {
   full_name: string;
@@ -70,6 +71,7 @@ export default function SignupPage() {
   return (
     <main className="login-shell">
       <section className="login-panel signup-panel">
+        <BrandLogo />
         <div className="login-copy">
           <div className="eyebrow">EMPLOYEE REGISTRATION</div>
           <h1>Create your<br /><em>account.</em></h1>
@@ -92,7 +94,7 @@ export default function SignupPage() {
       </section>
       <aside className="login-aside">
         <div className="abstract-art"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="art-orbit orbit-three" /><div className="art-disc"><span>A</span></div><div className="art-spark spark-one" /><div className="art-spark spark-two" /></div>
-        <div className="aside-caption"><span className="eyebrow">A BETTER WAY TO SHOW UP</span><h2>People first.<br />Presence always.</h2><p>Thoughtful tools for teams doing meaningful work.</p></div>
+        <div className="aside-caption"><span className="eyebrow">RGES ATTENDANCE PORTAL</span><h2>Start with a<br />clear record.</h2><p>Submit your details to join your organization's attendance workspace.</p></div>
       </aside>
     </main>
   );

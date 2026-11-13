@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BrandLogo from "@/components/BrandLogo";
 import Protected from "@/components/Protected";
 import { SignOutButton, useAuth } from "@/components/AuthProvider";
 
@@ -44,11 +45,11 @@ export default function AppShell({
         </aside>
         <div className="main-column">
           <header className="topbar">
-            <div><span className="topbar-title">{role === "admin" ? "Attendance workspace" : "Employee portal"}</span></div>
+            <div className="topbar-brand"><BrandLogo /><span className="topbar-title">{role === "admin" ? "Admin Workspace" : "Employee Workspace"}</span></div>
             <div className="topbar-right"><span className="today-label">{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date())}</span><span className="online-pill"><span className="status-dot" /> Live</span><SignOutButton /></div>
           </header>
           <main className="page-content">{children}</main>
-          <footer className="footer-note">ATTENDANT · EMPLOYEE ATTENDANCE MANAGEMENT</footer>
+          <footer className="footer-note">RGES ATTENDANCE PORTAL · RISK GUARD ENTERPRISE SOLUTIONS</footer>
         </div>
       </div>
     </Protected>

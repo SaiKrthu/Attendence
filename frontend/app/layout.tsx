@@ -3,8 +3,11 @@ import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Employee attendance",
-  description: "A secure employee attendance and workforce management platform.",
+  title: {
+    default: "RGES Attendance Portal",
+    template: "%s | RGES Attendance Portal",
+  },
+  description: "Secure workforce attendance management by Risk Guard Enterprise Solutions.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -75,7 +75,7 @@ video.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 # WINDOW
 # ============================================================
 
-WINDOW_NAME = "Face Recognition Attendance System"
+WINDOW_NAME = "RGES Attendance Portal"
 
 cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(WINDOW_NAME, 1280, 720)
@@ -150,16 +150,7 @@ while True:
 
         recognized_name = str(prediction[0])
 
-        # Current date/time
-        now = datetime.now()
-
-        date = now.strftime("%d-%m-%Y")
-        timestamp = now.strftime("%H:%M:%S")
-
-        attendance_data = [
-            recognized_name,
-            timestamp
-        ]
+        attendance_data = recognized_name
 
         # ====================================================
         # FACE BOX
@@ -230,7 +221,7 @@ while True:
     # Title
     cv2.putText(
         frame,
-        "FACE RECOGNITION ATTENDANCE SYSTEM",
+        "RGES ATTENDANCE PORTAL",
         (80, 45),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.9,
@@ -371,8 +362,10 @@ while True:
 
         if attendance_data is not None:
 
-            name = attendance_data[0]
-            timestamp = attendance_data[1]
+            name = attendance_data
+            now = datetime.now()
+            date = now.strftime("%d-%m-%Y")
+            timestamp = now.strftime("%H:%M:%S")
 
             attendance_folder = "Attendance"
 

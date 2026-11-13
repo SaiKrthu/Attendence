@@ -1,5 +1,6 @@
 from collections.abc import Generator
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import cv2
 import numpy as np
@@ -44,6 +45,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]
     monkeypatch.setattr(employee_routes, "decode_capture", lambda _: np.zeros((100, 100, 3), dtype=np.uint8))
     monkeypatch.setattr(face_recognition, "decode_capture", lambda _: np.zeros((100, 100, 3), dtype=np.uint8))
     monkeypatch.setattr(attendance_routes, "decode_capture", lambda _: np.zeros((100, 100, 3), dtype=np.uint8))
+    monkeypatch.setattr(
+        attendance_routes,
+        "reverse_geocode",
+        lambda latitude, longitude: f"Address for {latitude:.4f}, {longitude:.4f}",
+    )
     monkeypatch.setattr(employee_routes.face_service, "recognize", lambda _: {"status": "face_detected", "embedding": TEST_FEATURE})
     monkeypatch.setattr(face_recognition.face_service, "recognize", lambda _: {"status": "face_detected", "embedding": TEST_FEATURE})
     with TestClient(app) as test_client:
@@ -72,6 +78,19 @@ def test_health_and_empty_dashboard_never_fabricate_attendance(client: TestClien
         "late_today": 0,
         "on_leave": 0,
     }
+
+
+def test_cors_allows_portal_origin_on_port_3001(client: TestClient) -> None:
+    response = client.options(
+        "/api/auth/login",
+        headers={
+            "Origin": "http://127.0.0.1:3001",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:3001"
 
 
 def test_logout_revokes_the_jwt(client: TestClient) -> None:
@@ -184,7 +203,10 @@ def test_admin_can_reject_employee_signup(client: TestClient) -> None:
     assert client.get("/api/signup-requests", headers=admin_headers).json()["total"] == 0
 
 
-def test_attendance_rejects_duplicate_daily_check_in(client: TestClient) -> None:
+def test_attendance_schedule_and_grace_period(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     admin_token = login(client, "admin@example.com", "admin-password-123")
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
     payload = {
@@ -199,12 +221,105 @@ def test_attendance_rejects_duplicate_daily_check_in(client: TestClient) -> None
     assert client.post("/api/employees", json=payload, headers=admin_headers).status_code == 201
     employee_token = login(client, "attendance@example.com", "employee-password-456")
     headers = {"Authorization": f"Bearer {employee_token}"}
-    first = client.post("/api/attendance/check-in", json={"image": "valid-capture"}, headers=headers)
+    current_time = [datetime(2026, 11, 3, 10, 15, tzinfo=ZoneInfo("Asia/Kolkata"))]
+    monkeypatch.setattr(attendance_routes, "local_now", lambda: current_time[0])
+    check_in_payload = {
+        "image": "valid-capture",
+        "check_in_latitude": 23.8103,
+        "check_in_longitude": 90.4125,
+    }
+    missing_location = client.post(
+        "/api/attendance/check-in",
+        json={"image": "valid-capture"},
+        headers=headers,
+    )
+    assert missing_location.status_code == 422
+    invalid_location = client.post(
+        "/api/attendance/check-in",
+        json={**check_in_payload, "check_in_latitude": 91},
+        headers=headers,
+    )
+    assert invalid_location.status_code == 422
+    first = client.post("/api/attendance/check-in", json=check_in_payload, headers=headers)
     assert first.status_code == 201
     assert first.json()["employee_id"] == "EMP-1002"
-    second = client.post("/api/attendance/check-in", json={"image": "valid-capture"}, headers=headers)
+    assert first.json()["attendance_date"]
+    assert first.json()["check_in_time"]
+    assert first.json()["check_in_time"] == "10:15:00"
+    assert first.json()["status"] == "present"
+    assert first.json()["check_in_latitude"] == 23.8103
+    assert first.json()["check_in_longitude"] == 90.4125
+    assert first.json()["check_in_location_name"] == "Address for 23.8103, 90.4125"
+    today_records = client.get("/api/attendance/today", headers=headers)
+    assert today_records.status_code == 200
+    assert today_records.json()[0]["check_in_latitude"] == 23.8103
+    assert today_records.json()[0]["check_in_longitude"] == 90.4125
+    assert today_records.json()[0]["check_in_location_name"] == "Address for 23.8103, 90.4125"
+    current_time[0] = current_time[0].replace(hour=19, minute=0)
+    missing_checkout_location = client.post("/api/attendance/check-out", json={}, headers=headers)
+    assert missing_checkout_location.status_code == 422
+    check_out_payload = {
+        "check_out_latitude": 23.8104,
+        "check_out_longitude": 90.4126,
+    }
+    checked_out = client.post("/api/attendance/check-out", json=check_out_payload, headers=headers)
+    assert checked_out.status_code == 200
+    assert checked_out.json()["check_out_time"] == "19:00:00"
+    assert checked_out.json()["check_out_latitude"] == 23.8104
+    assert checked_out.json()["check_out_longitude"] == 90.4126
+    assert checked_out.json()["check_out_location_name"] == "Address for 23.8104, 90.4126"
+    assert checked_out.json()["working_hours"] == 8.75
+    assert checked_out.json()["status"] == "present"
+    second = client.post("/api/attendance/check-in", json=check_in_payload, headers=headers)
     assert second.status_code == 409
     assert "already marked" in second.json()["detail"].lower()
+
+
+def test_late_check_in_and_half_day_use_configured_schedule(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    admin_token = login(client, "admin@example.com", "admin-password-123")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    payload = {
+        "employee_id": "EMP-SCHEDULE",
+        "full_name": "Schedule Employee",
+        "email": "schedule@example.com",
+        "department": "Operations",
+        "joining_date": "2026-01-15",
+        "password": "schedule-password-456",
+        "face_samples": SAMPLES,
+    }
+    assert client.post("/api/employees", json=payload, headers=admin_headers).status_code == 201
+    employee_token = login(client, "schedule@example.com", "schedule-password-456")
+    employee_headers = {"Authorization": f"Bearer {employee_token}"}
+    current_time = [datetime(2026, 11, 3, 10, 16, tzinfo=ZoneInfo("Asia/Kolkata"))]
+    monkeypatch.setattr(attendance_routes, "local_now", lambda: current_time[0])
+
+    check_in = client.post(
+        "/api/attendance/check-in",
+        json={
+            "image": "valid-capture",
+            "check_in_latitude": 23.8103,
+            "check_in_longitude": 90.4125,
+        },
+        headers=employee_headers,
+    )
+    assert check_in.status_code == 201
+    assert check_in.json()["status"] == "late"
+
+    current_time[0] = current_time[0].replace(hour=14, minute=45)
+    check_out = client.post(
+        "/api/attendance/check-out",
+        json={
+            "check_out_latitude": 23.8104,
+            "check_out_longitude": 90.4126,
+        },
+        headers=employee_headers,
+    )
+    assert check_out.status_code == 200
+    assert check_out.json()["working_hours"] == 4.48
+    assert check_out.json()["status"] == "half_day"
 
 
 def test_admin_can_record_leave_and_absence(client: TestClient) -> None:

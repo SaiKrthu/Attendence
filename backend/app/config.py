@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,29 +16,41 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Employee Attendance Management API"
+    app_name: str = "RGES Attendance Portal API"
     environment: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api"
-    frontend_origins: str = "http://localhost:3000"
+    frontend_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:3001,http://127.0.0.1:3001"
+    )
     database_url: str = "sqlite:///./attendance.db"
     secret_key: str = "dev-only-change-this-secret-before-deploying"
     face_encryption_key: str = ""
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    admin_email: str = "admin@example.com"
+    admin_email: str = "admin@rgesindia.com"
     admin_password: str = ""
-    work_start_time: str = "09:00"
+    work_start_time: str = "10:00"
+    work_end_time: str = "19:00"
     late_after_minutes: int = 15
-    timezone: str = "Asia/Dhaka"
+    timezone: str = "Asia/Kolkata"
 
-    @field_validator("work_start_time")
+    @field_validator("work_start_time", "work_end_time")
     @classmethod
-    def validate_work_start_time(cls, value: str) -> str:
+    def validate_work_time(cls, value: str) -> str:
         try:
             datetime.strptime(value, "%H:%M")
         except ValueError as error:
-            raise ValueError("WORK_START_TIME must use HH:MM format.") from error
+            raise ValueError("Work times must use HH:MM format.") from error
         return value
+
+    @model_validator(mode="after")
+    def validate_work_schedule(self) -> Settings:
+        start = datetime.strptime(self.work_start_time, "%H:%M").time()
+        end = datetime.strptime(self.work_end_time, "%H:%M").time()
+        if end <= start:
+            raise ValueError("WORK_END_TIME must be later than WORK_START_TIME.")
+        return self
 
     @field_validator("late_after_minutes")
     @classmethod

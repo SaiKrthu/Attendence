@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.dependencies import get_current_user, get_db, require_admin
 from app.models import Attendance, AttendanceStatus, Employee, EmployeeStatus, User, UserRole
 from app.routes.face_recognition import decode_capture, match_face
+from app.services.location import LocationLookupError, reverse_geocode
 from app.schemas.attendance import (
     AttendanceResponse,
     AttendanceStatusRequest,
@@ -23,6 +24,16 @@ def local_now() -> datetime:
     return datetime.now(ZoneInfo(get_settings().timezone))
 
 
+def resolve_location_name(latitude: float, longitude: float) -> str:
+    try:
+        return reverse_geocode(latitude, longitude)
+    except LocationLookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not determine a readable address: {error}",
+        ) from error
+
+
 def to_response(record: Attendance) -> AttendanceResponse:
     return AttendanceResponse(
         id=record.id,
@@ -30,7 +41,13 @@ def to_response(record: Attendance) -> AttendanceResponse:
         employee_name=record.employee_name,
         attendance_date=record.attendance_date,
         check_in_time=record.check_in_time.isoformat() if record.check_in_time else None,
+        check_in_latitude=record.check_in_latitude,
+        check_in_longitude=record.check_in_longitude,
+        check_in_location_name=record.check_in_location_name,
         check_out_time=record.check_out_time.isoformat() if record.check_out_time else None,
+        check_out_latitude=record.check_out_latitude,
+        check_out_longitude=record.check_out_longitude,
+        check_out_location_name=record.check_out_location_name,
         status=record.status.value,
         working_hours=record.working_hours,
     )
@@ -68,13 +85,18 @@ def check_in(
     ).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Attendance already marked for today.")
-    work_start = datetime.strptime(get_settings().work_start_time, "%H:%M").time()
-    late_boundary = (datetime.combine(now.date(), work_start) + timedelta(minutes=get_settings().late_after_minutes)).time()
+    location_name = resolve_location_name(payload.check_in_latitude, payload.check_in_longitude)
+    settings = get_settings()
+    work_start = datetime.strptime(settings.work_start_time, "%H:%M").time()
+    late_boundary = (datetime.combine(now.date(), work_start) + timedelta(minutes=settings.late_after_minutes)).time()
     record = Attendance(
         employee_id=employee.id,
         employee_name=employee.full_name,
         attendance_date=now.date(),
         check_in_time=now.time().replace(tzinfo=None, microsecond=0),
+        check_in_latitude=payload.check_in_latitude,
+        check_in_longitude=payload.check_in_longitude,
+        check_in_location_name=location_name,
         status=AttendanceStatus.LATE if now.time().replace(tzinfo=None) > late_boundary else AttendanceStatus.PRESENT,
     )
     db.add(record)
@@ -109,11 +131,22 @@ def check_out(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No check-in record exists for today.")
     if record.check_out_time is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Check-out is already recorded for today.")
+    location_name = resolve_location_name(payload.check_out_latitude, payload.check_out_longitude)
     record.check_out_time = now.time().replace(tzinfo=None, microsecond=0)
+    record.check_out_latitude = payload.check_out_latitude
+    record.check_out_longitude = payload.check_out_longitude
+    record.check_out_location_name = location_name
     check_in_datetime = datetime.combine(record.attendance_date, record.check_in_time)
     check_out_datetime = datetime.combine(record.attendance_date, record.check_out_time)
     record.working_hours = round(max(0.0, (check_out_datetime - check_in_datetime).total_seconds() / 3600), 2)
-    if record.working_hours < 4:
+    settings = get_settings()
+    work_start = datetime.strptime(settings.work_start_time, "%H:%M").time()
+    work_end = datetime.strptime(settings.work_end_time, "%H:%M").time()
+    scheduled_hours = (
+        datetime.combine(record.attendance_date, work_end)
+        - datetime.combine(record.attendance_date, work_start)
+    ).total_seconds() / 3600
+    if record.working_hours < scheduled_hours / 2:
         record.status = AttendanceStatus.HALF_DAY
     db.commit()
     db.refresh(record)

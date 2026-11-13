@@ -55,4 +55,4 @@ app.include_router(reports_router, prefix=f"{settings.api_prefix}/reports")
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"message": "Employee Attendance Management API is running."}
+    return {"message": "RGES Attendance Portal API is running."}

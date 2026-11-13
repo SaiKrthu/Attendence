@@ -36,14 +36,30 @@ def attendance_report(
     results = query.order_by(Attendance.attendance_date, Employee.employee_id).all()
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Employee ID", "Employee Name", "Date", "Check-in", "Check-out", "Status", "Working Hours"])
+    writer.writerow([
+        "Employee ID",
+        "Employee Name",
+        "Date",
+        "Check-in",
+        "Check-in Latitude",
+        "Check-in Longitude",
+        "Check-out",
+        "Check-out Latitude",
+        "Check-out Longitude",
+        "Status",
+        "Working Hours",
+    ])
     for attendance, employee in results:
         writer.writerow([
             spreadsheet_safe(employee.employee_id),
             spreadsheet_safe(attendance.employee_name),
             attendance.attendance_date.isoformat(),
             attendance.check_in_time.isoformat() if attendance.check_in_time else "",
+            attendance.check_in_latitude if attendance.check_in_latitude is not None else "",
+            attendance.check_in_longitude if attendance.check_in_longitude is not None else "",
             attendance.check_out_time.isoformat() if attendance.check_out_time else "",
+            attendance.check_out_latitude if attendance.check_out_latitude is not None else "",
+            attendance.check_out_longitude if attendance.check_out_longitude is not None else "",
             spreadsheet_safe(attendance.status.value),
             attendance.working_hours if attendance.working_hours is not None else "",
         ])

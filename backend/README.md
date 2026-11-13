@@ -1,4 +1,4 @@
-# Attendance API
+# RGES Attendance Portal API
 
 FastAPI backend for the employee attendance application. It uses SQLAlchemy and
 Alembic, supports PostgreSQL for deployment, and defaults to a local SQLite
@@ -46,6 +46,7 @@ Expected local addresses:
 - Employee creation and face enrollment in one transaction
 - Haar Cascade face validation with the legacy 50×50 KNN-style pixel feature representation
 - Face matching and authenticated daily check-in/check-out
+- Check-in and check-out timestamps and GPS coordinates captured with browser permission
 - Unique employee/date attendance constraint, late calculation, half-day hours
 - Admin-recorded absent/leave statuses, with one attendance record per employee/date
 - Dashboard summary and CSV attendance export
@@ -77,8 +78,14 @@ encrypted face vectors cannot be read after losing or rotating that key.
 
 Run migrations as a release step with `python -m alembic upgrade head`, then
 start the API with `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-Use HTTPS at the hosting provider/reverse proxy; browser camera APIs require
-HTTPS except on localhost.
+Use HTTPS at the hosting provider/reverse proxy; browser camera and geolocation
+APIs require HTTPS except on localhost. Employees must allow location access
+for check-in and check-out. GPS coordinates are stored with each attendance
+record, resolved to a readable place name through OpenStreetMap Nominatim, and
+displayed with the coordinates in the attendance page.
 
-Attendance settings can be configured with `WORK_START_TIME` (`HH:MM`),
-`LATE_AFTER_MINUTES`, and `TIMEZONE` (IANA zone, default `Asia/Dhaka`).
+Attendance defaults are a 10:00 check-in, 19:00 end of day, a 15-minute
+check-in grace period, and Indian Standard Time (`Asia/Kolkata`). Configure
+these with `WORK_START_TIME`, `WORK_END_TIME` (`HH:MM`), `LATE_AFTER_MINUTES`,
+and `TIMEZONE`. A checkout is marked half-day only when the recorded work
+duration is less than half of the configured shift.

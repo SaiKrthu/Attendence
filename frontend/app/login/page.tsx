@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -30,7 +31,8 @@ export default function LoginPage() {
   return (
     <main className="login-shell">
       <section className="login-panel">
-        <div className="login-copy"><h1>Good work starts<br />with being <em>seen.</em></h1><p>Sign in to your secure attendance workspace.</p></div>
+        <BrandLogo />
+        <div className="login-copy"><h1>Attendance,<br /><em>with clarity.</em></h1><p>Sign in to your secure workforce management workspace.</p></div>
         <form className="form-stack" onSubmit={submit}>
           <label>Email address<input autoComplete="username" onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" required type="email" value={email} /></label>
           <label>Password<input autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type="password" value={password} /></label>
@@ -42,7 +44,7 @@ export default function LoginPage() {
       </section>
       <aside className="login-aside">
         <div className="abstract-art"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="art-orbit orbit-three" /><div className="art-disc"><span>A</span></div><div className="art-spark spark-one" /><div className="art-spark spark-two" /></div>
-        <div className="aside-caption"><span className="eyebrow">A BETTER WAY TO SHOW UP</span><h2>People first.<br />Presence always.</h2><p>Thoughtful tools for teams doing meaningful work.</p></div>
+        <div className="aside-caption"><span className="eyebrow">RGES ATTENDANCE PORTAL</span><h2>A clearer view<br />of your workforce.</h2><p>Reliable attendance records and workforce insights in one secure workspace.</p></div>
       </aside>
     </main>
   );
